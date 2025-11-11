@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Emotion Detection</title>
+</head>
+<body>
+  <h2>Emotion Detection Web App</h2>
+
+  <h3>Upload Image</h3>
+  <input type="file" id="fileInput" accept="image/*">
+  <button onclick="uploadImage()">Predict</button>
+
+  <h3>Or Use Webcam</h3>
+  <video id="video" width="300" height="225" autoplay></video>
+  <button onclick="captureWebcam()">Capture & Predict</button>
+
+  <p id="result"></p>
+  <img id="outputImage" src="" width="300">
+
+<script>
+  // --- Webcam setup ---
+  const video = document.getElementById('video')
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream)
+    .catch(err => alert('Webcam not accessible: ' + err))
+
+  // Log video dimensions when ready
+  video.addEventListener('loadedmetadata', () => {
+      console.log('Video dimensions:', video.videoWidth, video.videoHeight);
+  });
+
+  function uploadImage(){
+    const fileInput = document.getElementById('fileInput')
+    if(fileInput.files.length === 0){
+      alert('Please upload an image')
+      return
+    }
+    const formData = new FormData()
+    formData.append('file', fileInput.files[0])
+
+    fetch('/predict', { method:'POST', body: formData })
+      .then(res => res.json())
+      .then(data => displayResult(data))
+      .catch(err => alert('Error: ' + err))
+  }
+
+  function captureWebcam(){
+    // Capture frame from video
+    const canvas = document.createElement('canvas')
+    // Resize to model input size (224x224)
+    canvas.width = 224
+    canvas.height = 224
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const dataURL = canvas.toDataURL('image/jpeg') // base64
+
+    fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webcam: dataURL })
+    })
+    .then(res => res.json())
+    .then(data => displayResult(data))
+    .catch(err => alert('Error: ' + err))
+  }
+
+  function displayResult(data){
+    if(data.error){
+      document.getElementById('result').innerText = data.error
+      document.getElementById('outputImage').src = ''
+    } else {
+      document.getElementById('result').innerText = 'Predicted Emotion: ' + data.emotion
+      document.getElementById('outputImage').src = 'data:image/jpeg;base64,' + data.image
+    }
+  }
+</script>
+</body>
+</html>
